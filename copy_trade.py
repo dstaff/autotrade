@@ -19,7 +19,7 @@ symbol = "XAUUSD"
 api_id = '26931421'
 api_hash = 'd16501751e313ecf52fed51ab74fe26f'
 
-def start_trade(text):
+def check_signal(text):
     # Extract GOLD/SELL or GOLD/CALL and range
     pattern_header = re.compile(r'GOLD (SELL|CALL) (\d+\.\d+)-(\d+\.\d+)')
     match_header = pattern_header.search(text)
@@ -50,13 +50,75 @@ def start_trade(text):
         print(f"\nStop Loss: {sl}")
 
     if match_sl and matches_tp and match_header:
-        print("Trade Launched")
+        # Verfica el precio actual
+        tick_info = mt5.symbol_info_tick(symbol)
 
+        if tick_info is None:
+            print(f"No se pudo obtener la información del tick para {symbol}")
+        else:
+            thebid = int(tick_info.bid)#quitar decimales
+            theask = int(tick_info.ask)#quitar decimales
+            print(f"Precio actual de {symbol}: Bid={thebid}, Ask={theask}")
+
+        if thebid == theask and check_direction(low_range,high_range,thebid,direction):
+            launch_trade(thebid,direction,1984,sl)
+
+def check_direction(lr,hr,price,dir):
+    if dir == "SELL" and lr < hr and price >= lr and price <= hr:
+        return True
+    elif dir == "BUY" and lr > hr and price <= lr and price >= hr:
+        return True
+    else:
+        return False
+
+def launch_trade(price,dir,magic,stop_loss):
+    # Abrir una operación de compra
+
+    the_direction = mt5.ORDER_TYPE_BUY if dir == "BUY" else mt5.ORDER_TYPE_SELL
+
+    request = {
+        "action": mt5.TRADE_ACTION_DEAL,
+        "symbol": symbol,
+        "volume": 1,
+        "type": the_direction,
+        "price": price,
+        "sl": stop_loss,
+        "magic": magic,
+        "comment": "MAGIC TRADE",
+        "type_time": mt5.ORDER_TIME_GTC,
+        "type_filling": mt5.ORDER_FILLING_RETURN,
+    }
+
+    result = mt5.order_send(request)
+    if result.retcode != mt5.TRADE_RETCODE_DONE:
+        print("Error al abrir la operación:", result)
+        mt5.shutdown()
+        quit()
+    
+    print("Operación abierta con éxito. Ticket:", result.order)
+    ticket = result.order
+
+    # Esperar a que la operación se cierre
+    wait_for_trade(ticket)
+
+def wait_for_trade(ticket):
+    while True:
+        order_info = mt5.order_get(ticket)
+        if order_info.retcode != mt5.TRADE_RETCODE_DONE:
+            # La operación aún no se ha cerrado
+            print("Esperando que la operación se cierre...")
+            time.sleep(10)  # Esperar 5 segundos antes de volver a verificar
+        else:
+            # La operación se ha cerrado
+            print("La operación se ha cerrado.")
+            break
+    
 def main():
 
     with TelegramClient('session_name', api_id, api_hash) as client:
     
         client.connect()
+
         while True:
             end_date = datetime.now()
             start_date = end_date + timedelta(hours=5)
@@ -65,7 +127,7 @@ def main():
             
             history = client(GetHistoryRequest(
                     peer=-1001691932266,
-                    limit=5,
+                    limit=1,
                     offset_date=start_date,
                     offset_id=0,
                     add_offset=0,
@@ -78,7 +140,7 @@ def main():
                 try:
                     if not message.message is None:
 
-                        start_trade(message.message)
+                        check_signal(message.message)
 
                 except Exception as e:
                     print(f"Error: {e}")
@@ -86,7 +148,7 @@ def main():
                                 
             print("#####FINALIZA#####")
             print(datetime.now())
-            time.sleep(10)
+            time.sleep(5)
 
 if __name__ == '__main__':
     main()
