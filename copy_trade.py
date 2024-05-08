@@ -48,20 +48,23 @@ def check_signal(text):
     if match_sl:
         sl = match_sl.group(1)
         print(f"\nStop Loss: {sl}")
+    
+    # Verfica el precio actual
+    tick_info = mt5.symbol_info_tick(symbol)
+
+    print(f"Precio actual de {symbol}: Bid={tick_info.bid}, Ask={tick_info.ask}")
 
     if match_sl and matches_tp and match_header:
-        # Verfica el precio actual
-        tick_info = mt5.symbol_info_tick(symbol)
 
         if tick_info is None:
             print(f"No se pudo obtener la información del tick para {symbol}")
         else:
             thebid = int(tick_info.bid)#quitar decimales
             theask = int(tick_info.ask)#quitar decimales
-            print(f"Precio actual de {symbol}: Bid={thebid}, Ask={theask}")
+            #print(f"Precio actual de {symbol}: Bid={thebid}, Ask={theask}")
 
         if thebid == theask and check_direction(low_range,high_range,thebid,direction):
-            launch_trade(thebid,direction,1984,sl)
+            launch_trade(thebid,direction,1984,sl,matches_tp[0])
 
 def check_direction(lr,hr,price,dir):
     if dir == "SELL" and lr < hr and price >= lr and price <= hr:
@@ -71,7 +74,7 @@ def check_direction(lr,hr,price,dir):
     else:
         return False
 
-def launch_trade(price,dir,magic,stop_loss):
+def launch_trade(price,dir,magic,stop_loss,take_profit):
     # Abrir una operación de compra
 
     the_direction = mt5.ORDER_TYPE_BUY if dir == "BUY" else mt5.ORDER_TYPE_SELL
@@ -83,6 +86,7 @@ def launch_trade(price,dir,magic,stop_loss):
         "type": the_direction,
         "price": price,
         "sl": stop_loss,
+        "tp": take_profit,
         "magic": magic,
         "comment": "MAGIC TRADE",
         "type_time": mt5.ORDER_TIME_GTC,
@@ -148,7 +152,7 @@ def main():
                                 
             print("#####FINALIZA#####")
             print(datetime.now())
-            time.sleep(5)
+            time.sleep(2)
 
 if __name__ == '__main__':
     main()
