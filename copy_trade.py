@@ -21,7 +21,7 @@ api_hash = 'd16501751e313ecf52fed51ab74fe26f'
 
 def check_signal(text):
     # Extract GOLD/SELL or GOLD/CALL and range
-    pattern_header = re.compile(r'GOLD (SELL|CALL) (\d+\.\d+)-(\d+\.\d+)')
+    pattern_header = re.compile(r'GOLD (SELL|CALL) -(\d+\.\d+)-(\d+\.\d+)')
     match_header = pattern_header.search(text)
     if match_header:
         direction = match_header.group(1)
